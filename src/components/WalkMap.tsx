@@ -85,7 +85,12 @@ const WalkMap = ({ path }: WalkMapProps) => {
 
     const gmaps = window.google.maps;
     const gPath = path.map((p) => new gmaps.LatLng(p.lat, p.lng));
-    polylineRef.current.setPath(gPath);
+    try {
+      polylineRef.current.setPath(gPath);
+    } catch {
+      // Polyline not fully initialised (e.g. invalid API key)
+      return;
+    }
 
     if (path.length > 0) {
       const last = path[path.length - 1];
