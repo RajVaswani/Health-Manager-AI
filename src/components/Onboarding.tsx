@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, User, Weight, MapPin, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Sparkles, User, Weight, MapPin, Loader2, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -133,8 +134,16 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     },
   ];
 
+  const navigate = useNavigate();
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5 py-10">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5 py-10 relative">
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute top-5 left-5 w-9 h-9 rounded-xl bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+      </button>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
