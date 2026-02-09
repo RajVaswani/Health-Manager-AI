@@ -8,6 +8,7 @@ interface ProgressRingProps {
   bgColor?: string;
   label?: string;
   sublabel?: string;
+  onClick?: () => void;
 }
 
 const ProgressRing = ({
@@ -18,13 +19,20 @@ const ProgressRing = ({
   bgColor = "hsl(var(--sage-light))",
   label,
   sublabel,
+  onClick,
 }: ProgressRingProps) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (value / 100) * circumference;
 
+  const Wrapper = onClick ? motion.button : motion.div;
+
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <Wrapper
+      className={`flex flex-col items-center gap-1.5 ${onClick ? "cursor-pointer" : ""}`}
+      whileTap={onClick ? { scale: 0.93 } : undefined}
+      onClick={onClick}
+    >
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle
@@ -55,7 +63,7 @@ const ProgressRing = ({
       </div>
       {label && <span className="text-xs font-body font-medium text-foreground">{label}</span>}
       {sublabel && <span className="text-[10px] font-body text-muted-foreground">{sublabel}</span>}
-    </div>
+    </Wrapper>
   );
 };
 

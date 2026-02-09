@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import ProgressRing from "./ProgressRing";
 import { Leaf, TrendingUp } from "lucide-react";
 import { useTodayData } from "@/hooks/use-today-data";
@@ -8,8 +10,20 @@ const MEAL_GOAL = 4;
 const STEP_GOAL = 8000;
 const SLEEP_GOAL = 8;
 
-const DailyOverview = () => {
+export interface DailyOverviewHandles {
+  scrollToWater: () => void;
+  scrollToMeals: () => void;
+}
+
+interface DailyOverviewProps {
+  waterRef?: React.RefObject<HTMLDivElement | null>;
+  mealsRef?: React.RefObject<HTMLDivElement | null>;
+  sleepRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+const DailyOverview = ({ waterRef, mealsRef, sleepRef }: DailyOverviewProps) => {
   const { data } = useTodayData();
+  const navigate = useNavigate();
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -33,6 +47,10 @@ const DailyOverview = () => {
     if (avgProgress < 60) return "You're making steady progress. Keep going.";
     if (avgProgress < 90) return "Almost there — you're doing wonderfully today.";
     return "What an incredible day. You're shining! ✨";
+  };
+
+  const scrollTo = (ref?: React.RefObject<HTMLDivElement | null>) => {
+    ref?.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   return (
@@ -61,6 +79,7 @@ const DailyOverview = () => {
           sublabel={`${data.meals} of ${MEAL_GOAL} meals`}
           color="hsl(var(--terracotta))"
           bgColor="hsl(var(--terracotta-light))"
+          onClick={() => scrollTo(mealsRef)}
         />
         <ProgressRing
           value={waterPct}
@@ -68,6 +87,7 @@ const DailyOverview = () => {
           sublabel={`${data.water} of ${WATER_GOAL} glasses`}
           color="hsl(var(--sky))"
           bgColor="hsl(var(--sky-light))"
+          onClick={() => scrollTo(waterRef)}
         />
         <ProgressRing
           value={stepPct}
@@ -75,6 +95,7 @@ const DailyOverview = () => {
           sublabel={`${data.steps.toLocaleString()} steps`}
           color="hsl(var(--sage))"
           bgColor="hsl(var(--sage-light))"
+          onClick={() => navigate("/walk")}
         />
         <ProgressRing
           value={sleepPct}
@@ -82,6 +103,7 @@ const DailyOverview = () => {
           sublabel={`${data.sleepHours}h logged`}
           color="hsl(var(--lavender))"
           bgColor="hsl(var(--lavender-light))"
+          onClick={() => scrollTo(sleepRef)}
         />
       </div>
 
