@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, X, Loader2, Check, Utensils } from "lucide-react";
+import { Camera, X, Loader2, Check, ImagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -26,16 +26,10 @@ const QuickCapture = ({ open, onClose, onLogged }: QuickCaptureProps) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
-  // Auto-open camera when modal opens
-  useEffect(() => {
-    if (open && !imagePreview) {
-      // Small delay to ensure modal is rendered
-      const timer = setTimeout(() => fileRef.current?.click(), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [open, imagePreview]);
+  // No auto-open — let user choose camera or gallery
 
   const reset = () => {
     setImagePreview(null);
@@ -121,23 +115,38 @@ const QuickCapture = ({ open, onClose, onLogged }: QuickCaptureProps) => {
             {!imagePreview ? (
               /* Capture zone */
               <div className="space-y-3">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-primary/30 bg-sage-light/30 flex flex-col items-center justify-center gap-3 hover:border-primary/50 transition-colors"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <Camera className="w-8 h-8 text-primary" />
-                  </div>
-                  <div className="text-center">
-                    <p className="font-body font-medium text-foreground text-sm">Tap to capture your meal</p>
-                    <p className="font-body text-xs text-muted-foreground mt-1">Take a photo or choose from gallery</p>
-                  </div>
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => cameraRef.current?.click()}
+                    className="aspect-square rounded-2xl border-2 border-dashed border-primary/30 bg-sage-light/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 transition-colors"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Camera className="w-6 h-6 text-primary" />
+                    </div>
+                    <p className="font-body font-medium text-foreground text-sm">Take Photo</p>
+                  </button>
+                  <button
+                    onClick={() => galleryRef.current?.click()}
+                    className="aspect-square rounded-2xl border-2 border-dashed border-primary/30 bg-sage-light/30 flex flex-col items-center justify-center gap-2 hover:border-primary/50 transition-colors"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <ImagePlus className="w-6 h-6 text-primary" />
+                    </div>
+                    <p className="font-body font-medium text-foreground text-sm">From Gallery</p>
+                  </button>
+                </div>
                 <input
-                  ref={fileRef}
+                  ref={cameraRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  onChange={handleCapture}
+                  className="hidden"
+                />
+                <input
+                  ref={galleryRef}
+                  type="file"
+                  accept="image/*"
                   onChange={handleCapture}
                   className="hidden"
                 />
