@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Calendar, Check, ChevronLeft, ChevronRight, Leaf, Target, Sparkles, RotateCcw } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Calendar, Check, ChevronLeft, ChevronRight, ChevronDown, Leaf, Target, Sparkles, RotateCcw, CookingPot } from "lucide-react";
 import Layout from "@/components/Layout";
 import Onboarding from "@/components/Onboarding";
 
@@ -11,6 +11,7 @@ interface PlanItem {
   description: string;
   category: "meal" | "movement" | "habit" | "rest";
   completed: boolean;
+  recipe?: string;
 }
 
 const categoryStyles: Record<string, { bg: string; text: string; dot: string }> = {
@@ -39,10 +40,12 @@ const Plan = () => {
       description: item.description,
       category: item.category as PlanItem["category"],
       completed: false,
+      recipe: item.recipe || "",
     }));
   });
 
   const [dayOffset, setDayOffset] = useState(0);
+  const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null);
 
   const handlePlanGenerated = (newPlan: any) => {
     setAiPlan(newPlan);
@@ -55,6 +58,7 @@ const Plan = () => {
           description: item.description,
           category: item.category as PlanItem["category"],
           completed: false,
+          recipe: item.recipe || "",
         }))
       );
     }
@@ -186,17 +190,52 @@ const Plan = () => {
                       {item.completed && <Check className="w-3 h-3 text-primary-foreground" />}
                     </div>
                     <span
-                      className={`font-body font-medium text-sm ${
+                      className={`font-body font-medium text-sm flex-1 ${
                         item.completed ? "line-through text-muted-foreground" : "text-foreground"
                       }`}
                     >
                       {item.title}
                     </span>
+                    {item.category === "meal" && item.recipe && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedRecipe(expandedRecipe === item.id ? null : item.id);
+                        }}
+                        className="flex items-center gap-1 text-[10px] font-body text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <CookingPot className="w-3.5 h-3.5" />
+                        Recipe
+                        <ChevronDown className={`w-3 h-3 transition-transform ${expandedRecipe === item.id ? "rotate-180" : ""}`} />
+                      </span>
+                    )}
                   </div>
                   <p className="font-body text-xs text-muted-foreground mt-1 ml-7">
                     {item.description}
                   </p>
                 </button>
+
+                {/* Expandable recipe */}
+                <AnimatePresence>
+                  {item.category === "meal" && item.recipe && expandedRecipe === item.id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="ml-12 mt-1 rounded-xl bg-background border border-border p-4">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <CookingPot className="w-4 h-4 text-primary" />
+                          <span className="font-body font-semibold text-xs text-foreground">How to cook</span>
+                        </div>
+                        <p className="font-body text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                          {item.recipe}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             );
           })}

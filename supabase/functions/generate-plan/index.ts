@@ -26,7 +26,7 @@ serve(async (req) => {
             role: "system",
             content: `You are a warm, supportive wellness nutritionist. Create a personalized daily plan based on the user's profile. Be culturally aware of their region's cuisine and food availability. Be encouraging and gentle — no strict dieting language.
 
-Return a JSON object using the tool provided.`,
+Return a JSON object using the tool provided. For every meal item, include a detailed step-by-step recipe with ingredients and cooking instructions.`,
           },
           {
             role: "user",
@@ -35,7 +35,7 @@ Return a JSON object using the tool provided.`,
 - Weight: ${weight_kg} kg
 - Region: ${region}
 
-Include meals with regional foods, movement suggestions, hydration goals, and sleep recommendations.`,
+Include meals with regional foods (with full cooking recipes), movement suggestions, hydration goals, and sleep recommendations.`,
           },
         ],
         tools: [
@@ -65,6 +65,10 @@ Include meals with regional foods, movement suggestions, hydration goals, and sl
                         category: {
                           type: "string",
                           enum: ["meal", "movement", "habit", "rest"],
+                        },
+                        recipe: {
+                          type: "string",
+                          description: "For meal items only: a detailed step-by-step recipe including ingredients list and cooking instructions. Leave empty for non-meal items.",
                         },
                       },
                       required: ["time", "title", "description", "category"],
