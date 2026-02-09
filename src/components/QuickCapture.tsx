@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, X, Loader2, Check, Utensils } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,15 @@ const QuickCapture = ({ open, onClose, onLogged }: QuickCaptureProps) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Auto-open camera when modal opens
+  useEffect(() => {
+    if (open && !imagePreview) {
+      // Small delay to ensure modal is rendered
+      const timer = setTimeout(() => fileRef.current?.click(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [open, imagePreview]);
 
   const reset = () => {
     setImagePreview(null);
