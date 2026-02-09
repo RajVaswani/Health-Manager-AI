@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UtensilsCrossed, Plus, X, Clock } from "lucide-react";
+import { useTodayData } from "@/hooks/use-today-data";
 
 interface Meal {
   id: string;
@@ -12,9 +13,8 @@ interface Meal {
 const PRESETS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 const MealLog = () => {
-  const [meals, setMeals] = useState<Meal[]>([
-    { id: "1", name: "Breakfast", time: "8:30 AM", note: "Oats with berries & honey" },
-  ]);
+  const { data, update } = useTodayData();
+  const [meals, setMeals] = useState<Meal[]>([]);
   const [adding, setAdding] = useState(false);
   const [newMeal, setNewMeal] = useState({ name: "", note: "" });
 
@@ -22,15 +22,18 @@ const MealLog = () => {
     if (!newMeal.name.trim()) return;
     const now = new Date();
     const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    setMeals((prev) => [
-      ...prev,
-      { id: Date.now().toString(), name: newMeal.name, time, note: newMeal.note },
-    ]);
+    const updated = [...meals, { id: Date.now().toString(), name: newMeal.name, time, note: newMeal.note }];
+    setMeals(updated);
+    update({ meals: updated.length });
     setNewMeal({ name: "", note: "" });
     setAdding(false);
   };
 
-  const removeMeal = (id: string) => setMeals((prev) => prev.filter((m) => m.id !== id));
+  const removeMeal = (id: string) => {
+    const updated = meals.filter((m) => m.id !== id);
+    setMeals(updated);
+    update({ meals: updated.length });
+  };
 
   return (
     <div className="glass-card rounded-2xl p-5">
@@ -80,7 +83,10 @@ const MealLog = () => {
         ))}
       </AnimatePresence>
 
-      {/* Add meal form */}
+      {meals.length === 0 && !adding && (
+        <p className="text-sm text-muted-foreground font-body text-center py-3">No meals logged yet today</p>
+      )}
+
       <AnimatePresence>
         {adding && (
           <motion.div

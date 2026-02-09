@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Home, BookOpen, Calendar, Settings, Camera } from "lucide-react";
+import { Shield, Home, BookOpen, Calendar, Footprints, Camera } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import QuickCapture from "./QuickCapture";
 
@@ -12,7 +12,7 @@ const navItems = [
   { icon: Home, label: "Today", path: "/" },
   { icon: BookOpen, label: "Journal", path: "/journal" },
   { icon: Calendar, label: "Plan", path: "/plan" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: Footprints, label: "Walk", path: "/walk" },
 ];
 
 const Layout = ({ children }: LayoutProps) => {
