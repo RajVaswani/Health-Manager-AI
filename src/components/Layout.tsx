@@ -54,7 +54,10 @@ const Layout = ({ children }: LayoutProps) => {
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-display text-sm">N</span>
             </div>
-            <span className="font-display text-lg text-foreground">Nourish</span>
+            <div className="flex flex-col leading-tight">
+              <span className="font-display text-lg text-foreground">Nourish</span>
+              <span className="text-[8px] font-body text-muted-foreground -mt-0.5">by Vinita Vaswani</span>
+            </div>
           </div>
           <div className="flex items-center gap-1 text-muted-foreground">
             <Shield className="w-3.5 h-3.5" />
