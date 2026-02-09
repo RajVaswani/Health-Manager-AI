@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Smile, Meh, Frown, Zap, Battery, BatteryLow, Moon, Sun } from "lucide-react";
+import { Smile, Meh, Frown, Zap, Battery, BatteryLow } from "lucide-react";
+import { useTodayData } from "@/hooks/use-today-data";
 
 type MoodLevel = "great" | "okay" | "low" | null;
 type EnergyLevel = "high" | "medium" | "low" | null;
 
 const MoodTracker = () => {
-  const [mood, setMood] = useState<MoodLevel>(null);
-  const [energy, setEnergy] = useState<EnergyLevel>(null);
+  const { data, update } = useTodayData();
+  const mood = (data.mood as MoodLevel) || null;
+  const energy = (data.energy as EnergyLevel) || null;
+
+  const setMood = (v: MoodLevel) => update({ mood: v });
+  const setEnergy = (v: EnergyLevel) => update({ energy: v });
 
   const moods: { value: MoodLevel; icon: typeof Smile; label: string; color: string }[] = [
     { value: "great", icon: Smile, label: "Great", color: "bg-sage-light text-sage-dark" },
@@ -25,7 +30,6 @@ const MoodTracker = () => {
     <div className="glass-card rounded-2xl p-5">
       <h3 className="text-base font-body font-semibold text-foreground mb-4">How are you feeling?</h3>
 
-      {/* Mood */}
       <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-body">Mood</p>
       <div className="flex gap-2 mb-4">
         {moods.map((m) => {
@@ -49,7 +53,6 @@ const MoodTracker = () => {
         })}
       </div>
 
-      {/* Energy */}
       <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-body">Energy</p>
       <div className="flex gap-2">
         {energies.map((e) => {

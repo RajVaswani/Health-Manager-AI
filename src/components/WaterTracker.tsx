@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Droplets, Plus, Minus } from "lucide-react";
+import { useTodayData } from "@/hooks/use-today-data";
 
 const GOAL = 8;
 
 const WaterTracker = () => {
-  const [glasses, setGlasses] = useState(3);
+  const { data, update } = useTodayData();
+  const glasses = data.water;
 
-  const add = () => setGlasses((g) => Math.min(g + 1, 12));
-  const remove = () => setGlasses((g) => Math.max(g - 1, 0));
+  const add = () => update({ water: Math.min(glasses + 1, 12) });
+  const remove = () => update({ water: Math.max(glasses - 1, 0) });
 
   const pct = Math.min((glasses / GOAL) * 100, 100);
 
@@ -24,7 +26,6 @@ const WaterTracker = () => {
         </span>
       </div>
 
-      {/* Progress bar */}
       <div className="h-3 bg-sky-light rounded-full overflow-hidden mb-4">
         <motion.div
           className="h-full bg-sky rounded-full"
@@ -34,7 +35,6 @@ const WaterTracker = () => {
         />
       </div>
 
-      {/* Glasses visual */}
       <div className="flex gap-1.5 mb-4 flex-wrap">
         {Array.from({ length: GOAL }).map((_, i) => (
           <motion.div
@@ -45,14 +45,11 @@ const WaterTracker = () => {
               opacity: i < glasses ? 1 : 0.3,
             }}
             transition={{ type: "spring", stiffness: 200, damping: 15 }}
-            className={`w-6 h-8 rounded-md ${
-              i < glasses ? "bg-sky" : "bg-sky-light"
-            }`}
+            className={`w-6 h-8 rounded-md ${i < glasses ? "bg-sky" : "bg-sky-light"}`}
           />
         ))}
       </div>
 
-      {/* Controls */}
       <div className="flex items-center gap-3">
         <button
           onClick={remove}
