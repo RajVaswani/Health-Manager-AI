@@ -2,6 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "nourish_today";
 
+export interface MealEntry {
+  id: string;
+  name: string;
+  time: string;
+  note: string;
+  imageUrl?: string;
+  calories?: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+  fiber_g?: number;
+  highlights?: string[];
+  suggestion?: string;
+}
+
 export interface TodayData {
   date: string;
   water: number;
@@ -12,6 +27,7 @@ export interface TodayData {
   sleepHours: number;
   mood: string | null;
   energy: string | null;
+  mealEntries: MealEntry[];
 }
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -26,6 +42,7 @@ const defaults = (): TodayData => ({
   sleepHours: 0,
   mood: null,
   energy: null,
+  mealEntries: [],
 });
 
 const load = (): TodayData => {

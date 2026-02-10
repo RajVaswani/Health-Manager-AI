@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Check, ChevronLeft, ChevronRight, ChevronDown, Leaf, Target, Sparkles, RotateCcw, CookingPot } from "lucide-react";
+import { Calendar, Check, ChevronLeft, ChevronRight, ChevronDown, Leaf, Target, Sparkles, RotateCcw, CookingPot, UtensilsCrossed } from "lucide-react";
 import Layout from "@/components/Layout";
 import Onboarding from "@/components/Onboarding";
+import { useTodayData } from "@/hooks/use-today-data";
 
 interface PlanItem {
   id: string;
@@ -22,6 +23,8 @@ const categoryStyles: Record<string, { bg: string; text: string; dot: string }> 
 };
 
 const Plan = () => {
+  const { data: todayData } = useTodayData();
+
   const [aiPlan, setAiPlan] = useState<any>(() => {
     try {
       const raw = localStorage.getItem("nourish_ai_plan");
@@ -151,6 +154,45 @@ const Plan = () => {
                 animate={{ width: `${(completedCount / totalCount) * 100}%` }}
                 transition={{ type: "spring", stiffness: 80 }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Actual nutrition from logged meals */}
+        {todayData.mealEntries && todayData.mealEntries.length > 0 && todayData.mealEntries.some(m => m.calories) && (
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <UtensilsCrossed className="w-5 h-5 text-terracotta" />
+              <h3 className="font-body font-semibold text-sm text-foreground">Today's Nutrition</h3>
+              <span className="ml-auto text-[10px] font-body text-muted-foreground">
+                {todayData.mealEntries.length} meal{todayData.mealEntries.length !== 1 ? "s" : ""} logged
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {[
+                { label: "Calories", value: todayData.mealEntries.reduce((s, m) => s + (m.calories || 0), 0), unit: "kcal", bg: "bg-terracotta-light", text: "text-terracotta" },
+                { label: "Protein", value: todayData.mealEntries.reduce((s, m) => s + (m.protein_g || 0), 0), unit: "g", bg: "bg-sage-light", text: "text-sage-dark" },
+                { label: "Carbs", value: todayData.mealEntries.reduce((s, m) => s + (m.carbs_g || 0), 0), unit: "g", bg: "bg-amber-light", text: "text-amber" },
+                { label: "Fat", value: todayData.mealEntries.reduce((s, m) => s + (m.fat_g || 0), 0), unit: "g", bg: "bg-lavender-light", text: "text-lavender" },
+              ].map((m) => (
+                <div key={m.label} className={`${m.bg} rounded-xl p-2.5 text-center`}>
+                  <p className={`font-body font-semibold text-sm ${m.text}`}>{m.value}<span className="text-[10px]">{m.unit}</span></p>
+                  <p className="font-body text-[10px] text-muted-foreground mt-0.5">{m.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              {todayData.mealEntries.filter(m => m.calories).map((meal) => (
+                <div key={meal.id} className="flex items-center gap-2 py-1.5">
+                  {meal.imageUrl ? (
+                    <img src={meal.imageUrl} alt={meal.name} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <div className="w-2 h-2 rounded-full bg-terracotta shrink-0" />
+                  )}
+                  <span className="font-body text-xs text-foreground flex-1">{meal.name}</span>
+                  <span className="font-body text-[10px] text-muted-foreground">{meal.calories} kcal</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
