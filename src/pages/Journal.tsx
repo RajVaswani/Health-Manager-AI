@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, Loader2, Trash2 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
+import { useTodayData } from "@/hooks/use-today-data";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -39,6 +40,60 @@ const Journal = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+  const { data: todayData } = useTodayData();
+
+  // Build wellness context snapshot to send with each request
+  const getWellnessContext = () => {
+    const profile = (() => {
+      try {
+        const raw = localStorage.getItem("nourish_profile");
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    })();
+
+    const plan = (() => {
+      try {
+        const raw = localStorage.getItem("nourish_plan");
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    })();
+
+    return {
+      profile: profile ? {
+        gender: profile.gender,
+        age: profile.age,
+        weight_kg: profile.weight_kg,
+        height_cm: profile.height_cm,
+        region: profile.region,
+        diet: profile.diet,
+        activity_level: profile.activity_level,
+        goals: profile.goals,
+        allergies: profile.allergies,
+      } : null,
+      today: {
+        water_glasses: todayData.water,
+        meals_logged: todayData.meals,
+        steps: todayData.steps,
+        walk_minutes: todayData.walkMinutes,
+        walk_km: todayData.walkKm,
+        sleep_hours: todayData.sleepHours,
+        mood: todayData.mood,
+        energy: todayData.energy,
+        meal_entries: todayData.mealEntries.map(m => ({
+          name: m.name,
+          calories: m.calories,
+          protein_g: m.protein_g,
+          carbs_g: m.carbs_g,
+          fat_g: m.fat_g,
+        })),
+      },
+      plan_summary: plan ? {
+        daily_calories: plan.daily_calories,
+        water_goal: plan.water_glasses,
+        sleep_goal: plan.sleep_hours,
+      } : null,
+    };
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -83,6 +138,7 @@ const Journal = () => {
         },
         body: JSON.stringify({
           messages: updated.filter((m) => m !== WELCOME_MESSAGE || m.role === "user").slice(-20),
+          wellness_context: getWellnessContext(),
         }),
       });
 
