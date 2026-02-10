@@ -207,57 +207,58 @@ const Plan = () => {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="flex gap-3 py-3"
               >
-                <div className="flex flex-col items-center w-12 shrink-0">
-                  <span className="text-[10px] font-body text-muted-foreground whitespace-nowrap">
-                    {item.time}
-                  </span>
-                  <div className={`w-2 h-2 rounded-full mt-1.5 ${style.dot}`} />
-                  {i < plan.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
+                <div className="flex gap-3 py-3">
+                  <div className="flex flex-col items-center w-12 shrink-0">
+                    <span className="text-[10px] font-body text-muted-foreground whitespace-nowrap">
+                      {item.time}
+                    </span>
+                    <div className={`w-2 h-2 rounded-full mt-1.5 ${style.dot}`} />
+                    {i < plan.length - 1 && <div className="w-px flex-1 bg-border mt-1" />}
+                  </div>
+
+                  <button
+                    onClick={() => toggleComplete(item.id)}
+                    className={`flex-1 rounded-xl px-4 py-3 text-left transition-all ${
+                      item.completed ? "bg-muted/50 opacity-60" : style.bg
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                          item.completed ? "bg-primary border-primary" : "border-border"
+                        }`}
+                      >
+                        {item.completed && <Check className="w-3 h-3 text-primary-foreground" />}
+                      </div>
+                      <span
+                        className={`font-body font-medium text-sm flex-1 ${
+                          item.completed ? "line-through text-muted-foreground" : "text-foreground"
+                        }`}
+                      >
+                        {item.title}
+                      </span>
+                      {item.category === "meal" && item.recipe && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedRecipe(expandedRecipe === item.id ? null : item.id);
+                          }}
+                          className="flex items-center gap-1 text-[10px] font-body text-primary hover:text-primary/80 transition-colors"
+                        >
+                          <CookingPot className="w-3.5 h-3.5" />
+                          Recipe
+                          <ChevronDown className={`w-3 h-3 transition-transform ${expandedRecipe === item.id ? "rotate-180" : ""}`} />
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-body text-xs text-muted-foreground mt-1 ml-7">
+                      {item.description}
+                    </p>
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => toggleComplete(item.id)}
-                  className={`flex-1 rounded-xl px-4 py-3 text-left transition-all ${
-                    item.completed ? "bg-muted/50 opacity-60" : style.bg
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-colors ${
-                        item.completed ? "bg-primary border-primary" : "border-border"
-                      }`}
-                    >
-                      {item.completed && <Check className="w-3 h-3 text-primary-foreground" />}
-                    </div>
-                    <span
-                      className={`font-body font-medium text-sm flex-1 ${
-                        item.completed ? "line-through text-muted-foreground" : "text-foreground"
-                      }`}
-                    >
-                      {item.title}
-                    </span>
-                    {item.category === "meal" && item.recipe && (
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedRecipe(expandedRecipe === item.id ? null : item.id);
-                        }}
-                        className="flex items-center gap-1 text-[10px] font-body text-primary hover:text-primary/80 transition-colors"
-                      >
-                        <CookingPot className="w-3.5 h-3.5" />
-                        Recipe
-                        <ChevronDown className={`w-3 h-3 transition-transform ${expandedRecipe === item.id ? "rotate-180" : ""}`} />
-                      </span>
-                    )}
-                  </div>
-                  <p className="font-body text-xs text-muted-foreground mt-1 ml-7">
-                    {item.description}
-                  </p>
-                </button>
-
-                {/* Expandable recipe */}
+                {/* Expandable recipe - now below the row */}
                 <AnimatePresence>
                   {item.category === "meal" && item.recipe && expandedRecipe === item.id && (
                     <motion.div
@@ -266,7 +267,7 @@ const Plan = () => {
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="ml-12 mt-1 rounded-xl bg-background border border-border p-4">
+                      <div className="ml-12 mt-1 mb-2 rounded-xl bg-background border border-border p-4">
                         <div className="flex items-center gap-1.5 mb-2">
                           <CookingPot className="w-4 h-4 text-primary" />
                           <span className="font-body font-semibold text-xs text-foreground">How to cook</span>
