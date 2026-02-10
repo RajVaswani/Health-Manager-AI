@@ -9,9 +9,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { gender, weight_kg, region } = await req.json();
+    const { gender, weight_kg, age, height_cm, region, diet, activity_level, goals, allergies, preferred_cuisines, meals_per_day } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const allergyNote = allergies && allergies.length > 0 ? `Avoid these allergens: ${allergies.join(", ")}.` : "";
+    const cuisineNote = preferred_cuisines && preferred_cuisines.length > 0 ? `Preferred cuisines: ${preferred_cuisines.join(", ")}.` : "";
+    const goalNote = goals && goals.length > 0 ? `Goals: ${goals.join(", ")}.` : "";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -24,18 +28,26 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a warm, supportive wellness nutritionist. Create a personalized daily plan based on the user's profile. Be culturally aware of their region's cuisine and food availability. Be encouraging and gentle — no strict dieting language.
+            content: `You are a warm, supportive wellness nutritionist specializing in regional Indian and global cuisines. Create a deeply personalized daily plan based on the user's full profile. Be culturally specific — use actual regional dishes, local ingredients, and traditional cooking methods. Be encouraging and gentle — no strict dieting language.
 
-Return a JSON object using the tool provided. For every meal item, include a detailed step-by-step recipe with ingredients and cooking instructions.`,
+For Indian users, use authentic state-level cuisine (e.g., Poha for Maharashtra, Puttu for Kerala, Litti Chokha for Bihar). Respect dietary preferences strictly (vegetarian, Jain, vegan, etc.). ${allergyNote} ${cuisineNote}
+
+Return a JSON object using the tool provided. For every meal item, include a detailed step-by-step recipe with exact ingredients (with quantities) and cooking instructions.`,
           },
           {
             role: "user",
             content: `Create a personalized wellness plan for me:
 - Gender: ${gender}
+- Age: ${age || "not specified"}
+- Height: ${height_cm || "not specified"} cm
 - Weight: ${weight_kg} kg
 - Region: ${region}
+- Diet: ${diet || "not specified"}
+- Activity Level: ${activity_level || "not specified"}
+- ${goalNote}
+- Meals per day: ${meals_per_day || 3}
 
-Include meals with regional foods (with full cooking recipes), movement suggestions, hydration goals, and sleep recommendations.`,
+Include meals with authentic regional foods (with full cooking recipes with exact quantities), movement suggestions appropriate for my activity level, hydration goals, and sleep recommendations. Make sure to plan exactly ${meals_per_day || 3} meals plus any snacks.`,
           },
         ],
         tools: [
