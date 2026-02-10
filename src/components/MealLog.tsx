@@ -1,39 +1,67 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UtensilsCrossed, Plus, X, Clock } from "lucide-react";
-import { useTodayData } from "@/hooks/use-today-data";
-
-interface Meal {
-  id: string;
-  name: string;
-  time: string;
-  note: string;
-}
+import { UtensilsCrossed, Plus, X, Clock, Camera, ImagePlus, Loader2 } from "lucide-react";
+import { useTodayData, MealEntry } from "@/hooks/use-today-data";
+import QuickCapture from "./QuickCapture";
 
 const PRESETS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
 const MealLog = () => {
   const { data, update } = useTodayData();
-  const [meals, setMeals] = useState<Meal[]>([]);
   const [adding, setAdding] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [newMeal, setNewMeal] = useState({ name: "", note: "" });
+  const [showOptions, setShowOptions] = useState(false);
 
-  const addMeal = () => {
+  const meals = data.mealEntries || [];
+
+  const addManualMeal = () => {
     if (!newMeal.name.trim()) return;
     const now = new Date();
     const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    const updated = [...meals, { id: Date.now().toString(), name: newMeal.name, time, note: newMeal.note }];
-    setMeals(updated);
-    update({ meals: updated.length });
+    const entry: MealEntry = {
+      id: Date.now().toString(),
+      name: newMeal.name,
+      time,
+      note: newMeal.note,
+    };
+    const updated = [...meals, entry];
+    update({ meals: updated.length, mealEntries: updated });
     setNewMeal({ name: "", note: "" });
     setAdding(false);
   };
 
+  const handlePhotoLogged = (analysis: any, imageUrl: string) => {
+    const now = new Date();
+    const time = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const entry: MealEntry = {
+      id: Date.now().toString(),
+      name: analysis.meal_name,
+      time,
+      note: analysis.description,
+      imageUrl,
+      calories: analysis.estimated_calories,
+      protein_g: analysis.protein_g,
+      carbs_g: analysis.carbs_g,
+      fat_g: analysis.fat_g,
+      fiber_g: analysis.fiber_g,
+      highlights: analysis.highlights,
+      suggestion: analysis.suggestion,
+    };
+    const updated = [...meals, entry];
+    update({ meals: updated.length, mealEntries: updated });
+    setCaptureOpen(false);
+  };
+
   const removeMeal = (id: string) => {
     const updated = meals.filter((m) => m.id !== id);
-    setMeals(updated);
-    update({ meals: updated.length });
+    update({ meals: updated.length, mealEntries: updated });
   };
+
+  const totalCals = meals.reduce((s, m) => s + (m.calories || 0), 0);
+  const totalProtein = meals.reduce((s, m) => s + (m.protein_g || 0), 0);
+  const totalCarbs = meals.reduce((s, m) => s + (m.carbs_g || 0), 0);
+  const totalFat = meals.reduce((s, m) => s + (m.fat_g || 0), 0);
 
   return (
     <div className="glass-card rounded-2xl p-5">
@@ -42,13 +70,57 @@ const MealLog = () => {
           <UtensilsCrossed className="w-5 h-5 text-terracotta" />
           <h3 className="text-base font-body font-semibold text-foreground">Meals</h3>
         </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="w-8 h-8 rounded-xl bg-terracotta-light flex items-center justify-center text-terracotta hover:opacity-80 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowOptions(!showOptions)}
+            className="w-8 h-8 rounded-xl bg-terracotta-light flex items-center justify-center text-terracotta hover:opacity-80 transition-opacity"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <AnimatePresence>
+            {showOptions && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                className="absolute right-0 top-10 z-20 bg-background border border-border rounded-xl shadow-lg overflow-hidden min-w-[160px]"
+              >
+                <button
+                  onClick={() => { setCaptureOpen(true); setShowOptions(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-body text-foreground hover:bg-muted transition-colors"
+                >
+                  <Camera className="w-4 h-4 text-primary" />
+                  Photo Capture
+                </button>
+                <button
+                  onClick={() => { setAdding(true); setShowOptions(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-body text-foreground hover:bg-muted transition-colors border-t border-border"
+                >
+                  <Plus className="w-4 h-4 text-terracotta" />
+                  Add Manually
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
+
+      {/* Nutrition summary */}
+      {meals.length > 0 && totalCals > 0 && (
+        <div className="grid grid-cols-4 gap-1.5 mb-4">
+          {[
+            { label: "Cal", value: totalCals, bg: "bg-terracotta-light", text: "text-terracotta" },
+            { label: "Protein", value: `${totalProtein}g`, bg: "bg-sage-light", text: "text-sage-dark" },
+            { label: "Carbs", value: `${totalCarbs}g`, bg: "bg-amber-light", text: "text-amber" },
+            { label: "Fat", value: `${totalFat}g`, bg: "bg-lavender-light", text: "text-lavender" },
+          ].map((m) => (
+            <div key={m.label} className={`${m.bg} rounded-lg p-2 text-center`}>
+              <p className={`font-body font-semibold text-xs ${m.text}`}>{m.value}</p>
+              <p className="font-body text-[9px] text-muted-foreground">{m.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <AnimatePresence mode="popLayout">
         {meals.map((meal) => (
@@ -60,7 +132,11 @@ const MealLog = () => {
             exit={{ opacity: 0, x: -20 }}
             className="flex items-start gap-3 py-3 border-b border-border/50 last:border-0"
           >
-            <div className="w-2 h-2 rounded-full bg-terracotta mt-2 shrink-0" />
+            {meal.imageUrl ? (
+              <img src={meal.imageUrl} alt={meal.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+            ) : (
+              <div className="w-2 h-2 rounded-full bg-terracotta mt-2 shrink-0" />
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-body font-medium text-sm text-foreground">{meal.name}</span>
@@ -70,7 +146,12 @@ const MealLog = () => {
                 </span>
               </div>
               {meal.note && (
-                <p className="text-xs text-muted-foreground mt-0.5 font-body">{meal.note}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 font-body line-clamp-1">{meal.note}</p>
+              )}
+              {meal.calories && (
+                <p className="text-[10px] text-terracotta font-body mt-0.5">
+                  {meal.calories} kcal · {meal.protein_g}g P · {meal.carbs_g}g C · {meal.fat_g}g F
+                </p>
               )}
             </div>
             <button
@@ -120,7 +201,7 @@ const MealLog = () => {
               />
               <div className="flex gap-2">
                 <button
-                  onClick={addMeal}
+                  onClick={addManualMeal}
                   className="flex-1 py-2 text-sm rounded-xl bg-primary text-primary-foreground font-body font-medium hover:opacity-90 transition-opacity"
                 >
                   Log meal
@@ -136,6 +217,12 @@ const MealLog = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <QuickCapture
+        open={captureOpen}
+        onClose={() => setCaptureOpen(false)}
+        onLogged={handlePhotoLogged}
+      />
     </div>
   );
 };
