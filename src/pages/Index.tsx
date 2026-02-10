@@ -20,14 +20,14 @@ const Index = () => {
         <NudgeList />
         <div ref={waterRef} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <WaterTracker />
-          <MoodTracker />
+          <div ref={sleepRef}>
+            <SleepTracker />
+          </div>
         </div>
         <div ref={mealsRef}>
           <MealLog />
         </div>
-        <div ref={sleepRef}>
-          <SleepTracker />
-        </div>
+        <MoodTracker />
         <JournalEntry />
       </div>
     </Layout>
