@@ -1,255 +1,237 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Send, Camera, ChevronDown, ChevronRight, Utensils, Clock, Trash2 } from "lucide-react";
+import { Send, Sparkles, Loader2, Trash2 } from "lucide-react";
 import Layout from "@/components/Layout";
+import { useToast } from "@/hooks/use-toast";
 
-interface JournalEntry {
-  id: string;
-  type: "text" | "meal";
+interface ChatMessage {
+  role: "user" | "assistant";
   content: string;
-  timestamp: Date;
-  mealData?: {
-    meal_name: string;
-    estimated_calories: number;
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    imageUrl?: string;
-  };
 }
 
-// Retrieve entries from localStorage for persistence across page nav
-const loadEntries = (): JournalEntry[] => {
+const WELCOME_MESSAGE: ChatMessage = {
+  role: "assistant",
+  content:
+    "Hi there! 🌿 I'm your wellness companion. I'm here to chat about nutrition, sleep, movement, daily routines, or anything related to your wellbeing journey. What's on your mind today?",
+};
+
+const loadMessages = (): ChatMessage[] => {
   try {
-    const raw = localStorage.getItem("nourish_journal");
-    if (!raw) return getDefaultEntries();
-    return JSON.parse(raw).map((e: any) => ({ ...e, timestamp: new Date(e.timestamp) }));
+    const raw = localStorage.getItem("nourish_journal_chat");
+    if (!raw) return [WELCOME_MESSAGE];
+    const parsed = JSON.parse(raw) as ChatMessage[];
+    return parsed.length > 0 ? parsed : [WELCOME_MESSAGE];
   } catch {
-    return getDefaultEntries();
+    return [WELCOME_MESSAGE];
   }
 };
 
-const saveEntries = (entries: JournalEntry[]) => {
-  localStorage.setItem("nourish_journal", JSON.stringify(entries));
+const saveMessages = (msgs: ChatMessage[]) => {
+  localStorage.setItem("nourish_journal_chat", JSON.stringify(msgs));
 };
 
-const getDefaultEntries = (): JournalEntry[] => [
-  {
-    id: "1",
-    type: "text",
-    content: "Felt really good after my morning walk today. The fresh air helped clear my mind and I noticed I had more energy throughout the morning.",
-    timestamp: new Date(Date.now() - 3600000 * 5),
-  },
-  {
-    id: "2",
-    type: "meal",
-    content: "Had a balanced breakfast — oats with berries and honey",
-    timestamp: new Date(Date.now() - 3600000 * 8),
-    mealData: {
-      meal_name: "Oatmeal with berries",
-      estimated_calories: 350,
-      protein_g: 12,
-      carbs_g: 55,
-      fat_g: 8,
-    },
-  },
-];
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/journal-chat`;
 
 const Journal = () => {
-  const [entries, setEntries] = useState<JournalEntry[]>(loadEntries);
-  const [newEntry, setNewEntry] = useState("");
-  const [expandedDay, setExpandedDay] = useState<string>("today");
+  const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { toast } = useToast();
 
-  const addEntry = () => {
-    if (!newEntry.trim()) return;
-    const entry: JournalEntry = {
-      id: Date.now().toString(),
-      type: "text",
-      content: newEntry,
-      timestamp: new Date(),
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const clearChat = () => {
+    const fresh = [WELCOME_MESSAGE];
+    setMessages(fresh);
+    saveMessages(fresh);
+  };
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || isLoading) return;
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
+    saveMessages(updated);
+    setInput("");
+    setIsLoading(true);
+
+    let assistantSoFar = "";
+
+    const upsertAssistant = (chunk: string) => {
+      assistantSoFar += chunk;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && prev.length > updated.length - 1) {
+          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+        }
+        return [...prev, { role: "assistant", content: assistantSoFar }];
+      });
     };
-    const updated = [entry, ...entries];
-    setEntries(updated);
-    saveEntries(updated);
-    setNewEntry("");
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: updated.filter((m) => m !== WELCOME_MESSAGE || m.role === "user").slice(-20),
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Something went wrong" }));
+        toast({ title: "Oops", description: err.error, variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("No stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIdx: number;
+        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) upsertAssistant(content);
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+
+      // Save final state
+      setMessages((prev) => {
+        saveMessages(prev);
+        return prev;
+      });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "Could not reach the wellness assistant.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const removeEntry = (id: string) => {
-    const updated = entries.filter((e) => e.id !== id);
-    setEntries(updated);
-    saveEntries(updated);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
-
-  const formatTime = (date: Date) =>
-    date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-
-  const todayEntries = entries.filter(
-    (e) => e.timestamp.toDateString() === new Date().toDateString()
-  );
-  const olderEntries = entries.filter(
-    (e) => e.timestamp.toDateString() !== new Date().toDateString()
-  );
 
   return (
     <Layout>
-      <div className="space-y-5">
+      <div className="flex flex-col h-[calc(100vh-10rem)]">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-display text-foreground">Journal</h1>
-          <p className="text-sm text-muted-foreground font-body mt-1">
-            Your private space for reflection. No one else sees this.
-          </p>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-2xl font-display text-foreground flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-lavender" />
+              Wellness Journal
+            </h1>
+            <p className="text-xs text-muted-foreground font-body mt-0.5">
+              Your private lifestyle & nutrition companion
+            </p>
+          </div>
+          <button
+            onClick={clearChat}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors font-body"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Clear
+          </button>
         </div>
 
-        {/* New entry */}
-        <div className="glass-card rounded-2xl p-5">
-          <textarea
-            rows={3}
-            placeholder="What's on your mind? How are you feeling about your journey?"
-            value={newEntry}
-            onChange={(e) => setNewEntry(e.target.value)}
-            className="w-full px-4 py-3 text-sm rounded-xl bg-background border border-border focus:outline-none focus:ring-2 focus:ring-lavender/30 resize-none font-body leading-relaxed"
-          />
-          <div className="flex items-center justify-between mt-3">
-            <p className="text-xs text-muted-foreground font-body">
-              {newEntry.length > 0 ? `${newEntry.length} characters` : "Private & only for you"}
-            </p>
+        {/* Messages */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto space-y-3 pr-1 pb-2 scrollbar-thin"
+        >
+          <AnimatePresence initial={false}>
+            {messages.map((msg, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm font-body leading-relaxed whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-br-md"
+                      : "glass-card rounded-bl-md text-foreground"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+              <div className="glass-card rounded-2xl rounded-bl-md px-4 py-3">
+                <Loader2 className="w-4 h-4 animate-spin text-lavender" />
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="glass-card rounded-2xl p-3 mt-2">
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              placeholder="Ask about nutrition, sleep, routines..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1 px-3 py-2 text-sm rounded-xl bg-background border border-border focus:outline-none focus:ring-2 focus:ring-lavender/30 resize-none font-body leading-relaxed max-h-24"
+            />
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={addEntry}
-              disabled={!newEntry.trim()}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl bg-lavender-light text-lavender font-body font-medium hover:opacity-80 transition-opacity disabled:opacity-40"
+              onClick={sendMessage}
+              disabled={!input.trim() || isLoading}
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
             >
-              <Send className="w-3.5 h-3.5" />
-              Save
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </motion.button>
           </div>
         </div>
-
-        {/* Today's entries */}
-        <div>
-          <button
-            onClick={() => setExpandedDay(expandedDay === "today" ? "" : "today")}
-            className="flex items-center gap-2 mb-3"
-          >
-            {expandedDay === "today" ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            )}
-            <span className="text-sm font-body font-semibold text-foreground">Today</span>
-            <span className="text-xs text-muted-foreground font-body">
-              {todayEntries.length} {todayEntries.length === 1 ? "entry" : "entries"}
-            </span>
-          </button>
-
-          <AnimatePresence>
-            {expandedDay === "today" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="space-y-3 overflow-hidden"
-              >
-                {todayEntries.length === 0 && (
-                  <p className="text-sm text-muted-foreground font-body py-4 text-center">
-                    No entries yet today. How are you feeling?
-                  </p>
-                )}
-                {todayEntries.map((entry) => (
-                  <EntryCard key={entry.id} entry={entry} onRemove={removeEntry} formatTime={formatTime} />
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Older entries */}
-        {olderEntries.length > 0 && (
-          <div>
-            <button
-              onClick={() => setExpandedDay(expandedDay === "older" ? "" : "older")}
-              className="flex items-center gap-2 mb-3"
-            >
-              {expandedDay === "older" ? (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              )}
-              <span className="text-sm font-body font-semibold text-foreground">Earlier</span>
-              <span className="text-xs text-muted-foreground font-body">{olderEntries.length}</span>
-            </button>
-
-            <AnimatePresence>
-              {expandedDay === "older" && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="space-y-3 overflow-hidden"
-                >
-                  {olderEntries.map((entry) => (
-                    <EntryCard key={entry.id} entry={entry} onRemove={removeEntry} formatTime={formatTime} />
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
       </div>
     </Layout>
   );
 };
-
-const EntryCard = ({
-  entry,
-  onRemove,
-  formatTime,
-}: {
-  entry: JournalEntry;
-  onRemove: (id: string) => void;
-  formatTime: (d: Date) => string;
-}) => (
-  <motion.div
-    layout
-    initial={{ opacity: 0, y: 8 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="glass-card rounded-2xl p-4 group"
-  >
-    <div className="flex items-start justify-between">
-      <div className="flex items-center gap-2 mb-2">
-        {entry.type === "meal" ? (
-          <Utensils className="w-4 h-4 text-terracotta" />
-        ) : (
-          <BookOpen className="w-4 h-4 text-lavender" />
-        )}
-        <span className="text-xs text-muted-foreground font-body flex items-center gap-1">
-          <Clock className="w-3 h-3" />
-          {formatTime(entry.timestamp)}
-        </span>
-      </div>
-      <button
-        onClick={() => onRemove(entry.id)}
-        className="opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-destructive transition-all"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
-    <p className="font-body text-sm text-foreground/80 leading-relaxed">{entry.content}</p>
-    {entry.mealData && (
-      <div className="flex gap-3 mt-3 text-xs font-body">
-        <span className="px-2 py-1 rounded-lg bg-terracotta-light text-terracotta">
-          {entry.mealData.estimated_calories} kcal
-        </span>
-        <span className="px-2 py-1 rounded-lg bg-sage-light text-sage-dark">
-          {entry.mealData.protein_g}g protein
-        </span>
-        <span className="px-2 py-1 rounded-lg bg-amber-light text-amber">
-          {entry.mealData.carbs_g}g carbs
-        </span>
-      </div>
-    )}
-  </motion.div>
-);
 
 export default Journal;
